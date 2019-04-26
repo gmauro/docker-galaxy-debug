@@ -1,0 +1,15 @@
+- hosts: localhost
+  roles:
+    - role: docker
+      become: yes
+  tasks:
+    - name: "ensure user part of docker group"
+      become: yes
+      user:
+        name: "ubuntu"
+        groups: docker
+        append: yes
+
+    - name: reset ssh connection to allow user changes to affect 'current login user'
+      meta: reset_connection
+ 
