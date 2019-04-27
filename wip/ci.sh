@@ -11,10 +11,8 @@ python --version
 pip --version
 git --version
 echo "PATH=$PATH"
+echo "DOCKER_HOST=$DCKR_HOST"
 sleep 10
-
-mkdir -p "${TRAVIS_BUILD_DIR}"
-git clone https://github.com/gmauro/docker-galaxy-stable.git "${TRAVIS_BUILD_DIR}"
 
 set -e
 export GALAXY_HOME=/home/galaxy
@@ -22,13 +20,8 @@ export GALAXY_USER=admin@galaxy.org
 export GALAXY_USER_EMAIL=admin@galaxy.org
 export GALAXY_USER_PASSWD=admin
 export BIOBLEND_GALAXY_API_KEY=admin
-export BIOBLEND_GALAXY_URL=http://localhost:8080
+export BIOBLEND_GALAXY_URL="http://${DCKR_HOST}:8080"
 export COMPOSE_DIR="${TRAVIS_BUILD_DIR}/compose"
-
-sudo apt-get update -qq
-sudo apt-get install sshpass --no-install-recommends -y
-pip install -U ephemeris
-
 
 # Build a k8s cluster
 if [ "${KUBE}" ]
@@ -97,7 +90,7 @@ then
     pip install docker-compose galaxy-parsec
     export WORKING_DIR="$TRAVIS_BUILD_DIR/compose"
     export DOCKER_RUN_CONTAINER="galaxy-web"
-    INSTALL_REPO_ARG="--galaxy-url http://localhost:80"
+    INSTALL_REPO_ARG="--galaxy-url http://${DCKR_HOST}:80"
     SAMPLE_TOOLS=/export/config/sample_tool_list.yaml
     cd "$WORKING_DIR"
     # For build script
@@ -218,26 +211,27 @@ docker ps
 
 set -e
 
-echo "####"
+echo " "
 echo "####"
 echo "# Test submitting jobs to an external slurm cluster"
 echo "####"
-echo "####"
+echo " "
 if [ ! "${COMPOSE_SLURM}" ] && [ ! "${KUBE}" ] && [ ! "${COMPOSE_CONDOR_DOCKER}" ] && [ ! "${COMPOSE_SLURM_SINGULARITY}" ]
 then
     # For compose slurm is already included and thus tested
     cd $TRAVIS_BUILD_DIR/test/slurm/ && bash test.sh && cd $WORKING_DIR
 fi
-echo "####"
+
+echo " "
 echo "####"
 echo "# Test Web api"
 echo "####"
-echo "####"
+echo " "
 if [ "${COMPOSE_CONDOR_DOCKER}" ]
 then
     docker-compose logs --tail 50
 fi
-echo 'Waiting for Galaxy to come up.'
+echo "Waiting for Galaxy at ${BIOBLEND_GALAXY_URL} to come up."
 # galaxy-wait -g $BIOBLEND_GALAXY_URL --timeout 300
 curl -v \
      --connect-timeout 10 \
@@ -246,71 +240,87 @@ curl -v \
      --retry-delay 0 \
      --retry-max-time 300 \
      --fail \
-     --retry-connrefuse \
      $BIOBLEND_GALAXY_URL/api/version
 
-echo "####"
+echo " "
 echo "####"
 echo "# Test self-signed HTTPS"
 echo "####"
-echo "####"
+echo " "
 docker_run -d --name httpstest -p 443:443 -e "USE_HTTPS=True" $DOCKER_RUN_CONTAINER
 # TODO 19.05
 # - sleep 90s && curl -v -k --fail https://127.0.0.1:443/api/version
 #- echo | openssl s_client -connect 127.0.0.1:443 2>/dev/null | openssl x509 -issuer -noout| grep selfsigned
 docker logs httpstest && docker stop httpstest && docker rm httpstest
 
-echo "####"
+echo " "
 echo "####"
 echo "# Test FTP Server upload"
 echo "####"
-echo "####"
- date > time.txt && curl -v --fail -T time.txt ftp://localhost:8021 --user $GALAXY_USER:$GALAXY_USER_PASSWD || true
-# Test FTP Server get
-curl -v --fail ftp://localhost:8021 --user $GALAXY_USER:$GALAXY_USER_PASSWD
+echo " "
+#date > time.txt && \
+#curl -v \
+#     --connect-timeout 10 \
+#     --max-time 5 \
+#     --retry 10 \
+#     --retry-delay 0 \
+#     --retry-max-time 100 \
+#     --fail \
+#     -T time.txt \
+#     ftp://$DCKR_HOST:8021 --user $GALAXY_USER:$GALAXY_USER_PASSWD || true
 
-echo "####"
+# Test FTP Server get
+#curl -v \
+#     --connect-timeout 10 \
+#     --max-time 5 \
+#     --retry 10 \
+#     --retry-delay 0 \
+#     --retry-max-time 100 \
+#     --fail \
+#     ftp://$DCKR_HOST:8021 --user $GALAXY_USER:$GALAXY_USER_PASSWD
+
+echo " "
 echo "####"
 echo "# Test CVMFS"
 echo "####"
-echo "####"
+echo " "
 docker_exec bash -c "service autofs start"
 docker_exec bash -c "cvmfs_config chksetup"
 docker_exec bash -c "ls /cvmfs/data.galaxyproject.org/byhand"
 
-echo "####"
+echo " "
 echo "####"
 echo "# Test SFTP Server"
 echo "####"
-echo "####"
-sshpass -p $GALAXY_USER_PASSWD sftp -v -P 8022 -o User=$GALAXY_USER -o "StrictHostKeyChecking no" localhost <<< $'put time.txt'
+echo " "
+sshpass -p $GALAXY_USER_PASSWD sftp -v -P 8022 -o User=$GALAXY_USER -o "StrictHostKeyChecking no" $DCKR_HOST <<< $'put time.txt'
 
-echo "####"
+echo " "
 echo "####"
 echo "# Run a ton of BioBlend test against our servers."
 echo "####"
-echo "####"
+echo " "
 cd $TRAVIS_BUILD_DIR/test/bioblend/ && . ./test.sh && cd $WORKING_DIR/
 
-echo "####"
+echo " "
 echo "####"
 echo "# Test the 'new' tool installation script"
 echo "####"
-echo "####"
+echo " "
 if [ "${COMPOSE_SLURM}" ] || [ "${KUBE}" ] || [ "${COMPOSE_CONDOR_DOCKER}" ] || [ "${COMPOSE_SLURM_SINGULARITY}" ]
 then
     # Compose uses the online installer (uses the running instance)
     sleep 10
-    docker_exec_run shed-tools install -g "http://localhost:80" -a admin -t "$SAMPLE_TOOLS"
+    docker_exec_run shed-tools install -g "http://${DCKR_HOST}:80" -a admin -t "$SAMPLE_TOOLS"
 else
     docker_exec_run install-tools "$SAMPLE_TOOLS"
 fi
 
-echo "####"
+echo " "
 echo "####"
 echo "# Test the Conda installation"
 echo "####"
-echo "####"
+echo " "
 docker_exec_run bash -c 'export PATH=$GALAXY_CONFIG_TOOL_DEPENDENCY_DIR/_conda/bin/:$PATH && conda --version && conda install samtools -c bioconda --yes'
 # Test Docker in Docker, used by Interactive Environments; This needs to be at the end as Docker takes some time to start.
 #- docker_exec docker info
@@ -321,3 +331,9 @@ then
     cd $WORKING_DIR && bash ./dumpsql.sh
     git diff --exit-code $WORKING_DIR/galaxy-postgres/init-galaxy-db.sql.in || ( echo "Database dump does not equal dump in repository" && false )
 fi
+
+echo " "
+echo "####"
+echo "# The end"
+echo "####"
+echo " "

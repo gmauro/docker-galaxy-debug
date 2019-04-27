@@ -1,11 +1,11 @@
 # Based on Ubuntu 18.04
 FROM ubuntu:18.04
-MAINTAINER Gianmauro Cuccuru <gmauro@crs4.it>
+MAINTAINER Gianmauro Cuccuru <gmauro@gmail.com>
 
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get update \
- && apt-get install -q -y \
+ && apt-get install -q --no-install-recommends -y \
     apt-utils \
     apt-transport-https \
     wget \
