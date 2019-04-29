@@ -3,7 +3,7 @@
 TRAVIS_BUILD_DIR="/home/user/build_dir"
 FORCE_BUILD=false
 
-TOX_ENV=py27
+source config.sh
 
 docker info
 docker --version
