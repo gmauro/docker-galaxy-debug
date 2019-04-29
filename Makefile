@@ -3,9 +3,7 @@ GALAXY_CONTAINER_NAME = galaxy
 CONTAINER_NETWORK_NAME = debug
 BASE_IMAGE_NAME = docker_galaxy_debug-base
 IMAGE_NAME = docker_galaxy_debug
-HOST_DIR = /home/gmauro/version/gmauro/docker-galaxy-debug/wip
-CONTAINER_DIR = /home/user/from_host
-TARGETS=help clean 
+TARGETS=help clean
 TMP_BUILD_DIR := $(shell mktemp -d)
 
 .PHONY: "${TARGETS}"
@@ -46,7 +44,6 @@ run:
 		-e "DCKR_HOST=$(shell ip -4 addr show docker0 | grep -Po 'inet \K[\d.]+')" \
 		--name "${DEBUG_CONTAINER_NAME}" \
 		-v "/var/run/docker.sock:/var/run/docker.sock" \
-		-v "${HOST_DIR}:${CONTAINER_DIR}" \
 		-dit  "${IMAGE_NAME}"
 
 	docker ps
