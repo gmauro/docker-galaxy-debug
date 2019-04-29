@@ -24,7 +24,7 @@ RUN \
   echo "user ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/user && \
   chmod 0440 /etc/sudoers.d/user && \
   mkdir -p /home/user/build_dir && \
-  git clone https://github.com/gmauro/docker-galaxy-stable.git /home/user/build_dir && \
+  git clone --recursive -b dev --single-branch https://github.com/bgruening/docker-galaxy-stable.git /home/user/build_dir && \
   chown -R user:user /home/user
 
 USER user
