@@ -25,9 +25,10 @@ RUN \
   chmod 0440 /etc/sudoers.d/user && \
   mkdir -p /home/user/build_dir && \
   git clone --recursive -b dev --single-branch https://github.com/bgruening/docker-galaxy-stable.git /home/user/build_dir && \
+  git clone --recursive -b master --single-branch https://github.com/gmauro/docker-galaxy-debug.git /home/user/debug && \
   chown -R user:user /home/user
 
 USER user
-WORKDIR /home/user
+WORKDIR /home/user/debug
 
 CMD ["tail", "-f", "/dev/null"]
