@@ -2,6 +2,9 @@ From docker_galaxy_debug-base
 
 ENV DEBIAN_FRONTEND noninteractive
 
+ARG _UID
+ARG _GID
+
 RUN apt-get update \
  && apt-get install -q --no-install-recommends -y \
     sudo \
@@ -18,17 +21,19 @@ RUN apt-get update \
  && rm -rf ansible-docker
 
 RUN \
-  adduser --quiet --shell /bin/bash user && \
+  addgroup --gid $_GID user && \
+  adduser --quiet --shell /bin/bash --uid $_UID --gid $_GID user && \
   adduser user sudo && \
   adduser user docker && \
   echo "user ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/user && \
   chmod 0440 /etc/sudoers.d/user && \
   mkdir -p /home/user/build_dir && \
+  mkdir -p /home/user/debug_dir && \
 #  git clone --recursive -b dev --single-branch https://github.com/bgruening/docker-galaxy-stable.git /home/user/build_dir && \
-  git clone -b master https://github.com/gmauro/docker-galaxy-debug.git /home/user/debug && \
+#  git clone -b master https://github.com/gmauro/docker-galaxy-debug.git /home/user/debug && \
   chown -R user:user /home/user
 
 USER user
-WORKDIR /home/user/debug
+WORKDIR /home/user/debug_dir
 
 CMD ["tail", "-f", "/dev/null"]
