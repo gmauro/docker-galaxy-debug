@@ -8,6 +8,10 @@ TMP_BUILD_DIR := $(shell mktemp -d)
 
 .PHONY: "${TARGETS}"
 
+define docker_build
+	docker build --no-cache -t "$(1)" -f $(2) $(3)
+endef
+
 help:
 	@echo "Please use \`make <target>\` where <target> is one of"
 	@echo "  clean                    to stop and remove debug container"
@@ -22,35 +26,44 @@ clean: stop remove restart_docker_service
 	echo "A bit of cleaning..."
 
 build_base:
-	docker build -t  "${BASE_IMAGE_NAME}" -f Dockerfile_base .
+	$(call docker_build,${BASE_IMAGE_NAME},Dockerfile_base,.)
 
 build_debug:
-	docker build -t  "${IMAGE_NAME}" .
+	$(call docker_build,${IMAGE_NAME},Dockerfile,.)
 
-build_monolithic_galaxy:
-	git clone --recursive -b dev --single-branch https://github.com/bgruening/docker-galaxy-stable.git '$(TMP_BUILD_DIR)'
-	docker build -t quay.io/bgruening/galaxy $(TMP_BUILD_DIR)/galaxy/
-	rm -rf $(TMP_BUILD_DIR)
+build_monolithic_galaxy: clone_monolithic_galaxy
+	$(call docker_build,quay.io/bgruening/galaxy:pg11,Dockerfile,$(TMP_BUILD_DIR)/galaxy/)
+
+clone_monolithic_galaxy:
+	git clone --recursive -b pg11 --single-branch https://github.com/gmauro/docker-galaxy-stable.git '$(TMP_BUILD_DIR)'
+	chmod -R +rx "$(TMP_BUILD_DIR)"
 
 exec:
 	docker exec -it "${DEBUG_CONTAINER_NAME}" bash -l
 
 prune:
 	docker system prune -f
-	docker volume prune
+	docker volume prune -f
 
 run:
 	docker run --rm \
 		-e "DCKR_HOST=$(shell ip -4 addr show docker0 | grep -Po 'inet \K[\d.]+')" \
 		--name "${DEBUG_CONTAINER_NAME}" \
 		-v "/var/run/docker.sock:/var/run/docker.sock" \
+		-v "$(TMP_BUILD_DIR):/home/user/build_dir" \
 		-dit  "${IMAGE_NAME}"
 
 	docker ps
 
+start_debug_env: clone_monolithic_galaxy run exec
+
+
 stop:
 	-docker stop "${DEBUG_CONTAINER_NAME}"
 	-docker stop "${GALAXY_CONTAINER_NAME}"
+
+test-mono:
+	docker exec -ti "${DEBUG_CONTAINER_NAME}" bash run_test.sh
 
 restart_docker_service:
 	sudo service docker restart
