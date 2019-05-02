@@ -5,6 +5,9 @@ BASE_IMAGE_NAME = docker_galaxy_debug-base
 IMAGE_NAME = docker_galaxy_debug
 TARGETS=help clean
 TMP_BUILD_DIR := $(shell mktemp -d)
+TMP_DEBUG_DIR := $(shell mktemp -d)
+UID := $(shell id -u)
+GID := $(shell id -g)
 
 .PHONY: "${TARGETS}"
 
@@ -29,17 +32,14 @@ build_base:
 	$(call docker_build,${BASE_IMAGE_NAME},Dockerfile_base,.)
 
 build_debug:
-	$(call docker_build,${IMAGE_NAME},Dockerfile,.)
+	$(call docker_build,${IMAGE_NAME},Dockerfile,--build-arg _UID=${UID} --build-arg _GID=${GID} .)
 
-build_monolithic_galaxy: clone_monolithic_galaxy
-	$(call docker_build,quay.io/bgruening/galaxy:pg11,Dockerfile,$(TMP_BUILD_DIR)/galaxy/)
-
-clone_monolithic_galaxy:
-	git clone --recursive -b pg11 --single-branch https://github.com/gmauro/docker-galaxy-stable.git '$(TMP_BUILD_DIR)'
-	chmod -R +rx "$(TMP_BUILD_DIR)"
+clone:
+	git clone --recursive -b pg11 https://github.com/gmauro/docker-galaxy-stable.git '$(TMP_BUILD_DIR)'
+	git clone -b master https://github.com/gmauro/docker-galaxy-debug.git '$(TMP_DEBUG_DIR)'
 
 exec:
-	docker exec -it "${DEBUG_CONTAINER_NAME}" bash -l
+	-docker exec -it "${DEBUG_CONTAINER_NAME}" bash -l
 
 prune:
 	docker system prune -f
@@ -51,11 +51,12 @@ run:
 		--name "${DEBUG_CONTAINER_NAME}" \
 		-v "/var/run/docker.sock:/var/run/docker.sock" \
 		-v "$(TMP_BUILD_DIR):/home/user/build_dir" \
+		-v "$(TMP_DEBUG_DIR):/home/user/debug_dir" \
 		-dit  "${IMAGE_NAME}"
 
 	docker ps
 
-start_debug_env: clone_monolithic_galaxy run exec
+start_debug_env: clone run exec clean
 
 
 stop:
@@ -71,4 +72,5 @@ restart_docker_service:
 remove:
 	-docker rm "${DEBUG_CONTAINER_NAME}"
 	-docker rm "${GALAXY_CONTAINER_NAME}"
+	-sudo rm -rf "$(TMP_BUILD_DIR)" "$(TMP_DEBUG_DIR)"
 
