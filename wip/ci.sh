@@ -3,8 +3,6 @@
 TRAVIS_BUILD_DIR="/home/user/build_dir"
 FORCE_BUILD=false
 
-source config.sh
-
 docker info
 docker --version
 python --version
